@@ -2,7 +2,6 @@ import pytest
 
 from crud.lexer import LexError, TokenType as T, tokenize
 
-
 def test_regresi_komentar_blok_multi_baris_dilewati():
     """Bug: komentar blok /* ... */ sebelumnya memicu LexError."""
     toks = tokenize("/* komentar\n   dua baris */ SELECT")
@@ -40,3 +39,7 @@ def test_tepi_komentar_baris_dan_blok_bersama():
     assert toks[0].value == "SELECT"
     assert toks[1].value == "id"
     assert toks[2].value == "FROM"
+
+def test_operator_tidak_sama_diamond_satu_token():
+    toks = [t for t in tokenize("a <> 1") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [(T.IDENT, "a"), (T.OP, "<>"), (T.NUMBER, "1")]
