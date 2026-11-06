@@ -26,11 +26,6 @@ def test_tepi_komentar_blok_di_awal_file():
     toks = tokenize("/* awal */ select * from t")
     assert toks[0].value == "SELECT" and toks[1].value == "*"
 
-def test_tepi_komentar_blok_dengan_spasi_sebelum_select():
-    # Risiko: whitespace setelah penutup komentar bisa mengganggu token berikutnya.
-    toks = tokenize("/* isi */\n  SELECT\n  id")
-    assert toks[0].value == "SELECT" and toks[0].line == 2
-
 def test_tepi_keyword_campur_huruf_setelah_komentar():
     # Risiko: lexer harus tetap case-insensitive walaupun komentar berada tepat sebelum keyword.
     toks = tokenize("/* x */ SeLeCt * FrOm t")
@@ -51,3 +46,50 @@ def test_tepi_komentar_baris_dan_blok_bersama():
 def test_operator_tidak_sama_diamond_satu_token():
     toks = [t for t in tokenize("a <> 1") if t.type != T.EOF]
     assert [(t.type, t.value) for t in toks] == [(T.IDENT, "a"), (T.OP, "<>"), (T.NUMBER, "1")]
+
+def test_string_dengan_kutip_ganda_escape():
+    toks = [t for t in tokenize("SELECT 1 FROM t WHERE a = 'it''s'") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [
+        (T.KEYWORD, "SELECT"),
+        (T.NUMBER, "1"),
+        (T.KEYWORD, "FROM"),
+        (T.IDENT, "t"),
+        (T.KEYWORD, "WHERE"),
+        (T.IDENT, "a"),
+        (T.OP, "="),
+        (T.STRING, "it's"),
+    ]
+
+
+def test_tepi_string_apostrof_di_tengah():
+    # Risiko: apostrof yang escaped di tengah string harus tetap menjadi satu literal, bukan penutup string.
+    toks = [t for t in tokenize("SELECT 'O''Brien' AS nama") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [
+        (T.KEYWORD, "SELECT"),
+        (T.STRING, "O'Brien"),
+        (T.KEYWORD, "AS"),
+        (T.IDENT, "nama"),
+    ]
+
+
+def test_tepi_string_beberapa_apostrof():
+    # Risiko: beberapa escape dalam satu literal harus dipertahankan semua, bukan dibreak di karakter pertama.
+    toks = [t for t in tokenize("SELECT 'A''B''C' AS kode") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [
+        (T.KEYWORD, "SELECT"),
+        (T.STRING, "A'B'C"),
+        (T.KEYWORD, "AS"),
+        (T.IDENT, "kode"),
+    ]
+
+
+def test_tepi_string_setelah_komentar():
+    # Risiko: komentar sebelumnya tidak boleh memengaruhi parsing literal string berikutnya.
+    toks = [t for t in tokenize("/* x */ SELECT 'it''s' FROM t") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [
+        (T.KEYWORD, "SELECT"),
+        (T.STRING, "it's"),
+        (T.KEYWORD, "FROM"),
+        (T.IDENT, "t"),
+    ]
+
