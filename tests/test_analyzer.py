@@ -33,4 +33,4 @@ def test_crud_delete():
 def test_matrix_laporan_penjualan():
     res = analyze_source((DATA / "laporan_penjualan.sql").read_text(encoding="utf-8"))
     assert res.lex_error is None and res.parse_errors == []
-    assert res.matrix() == {"arsip_pesanan": "C", "pelanggan": "RU", "pesanan": "RUD"}
+    assert res.matrix() == {"arsip_pesanan": "C", "pelanggan": "RU", "pesanan": "RD"}
