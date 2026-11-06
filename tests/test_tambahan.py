@@ -51,3 +51,18 @@ def test_tepi_komentar_baris_dan_blok_bersama():
 def test_operator_tidak_sama_diamond_satu_token():
     toks = [t for t in tokenize("a <> 1") if t.type != T.EOF]
     assert [(t.type, t.value) for t in toks] == [(T.IDENT, "a"), (T.OP, "<>"), (T.NUMBER, "1")]
+
+def test_string_dengan_kutip_ganda_escape():
+    toks = [t for t in tokenize("SELECT 1 FROM t WHERE a = 'it''s'") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [
+        (T.KEYWORD, "SELECT"),
+        (T.NUMBER, "1"),
+        (T.KEYWORD, "FROM"),
+        (T.IDENT, "t"),
+        (T.KEYWORD, "WHERE"),
+        (T.IDENT, "a"),
+        (T.OP, "="),
+        (T.STRING, "it's"),
+    ]
+
+
