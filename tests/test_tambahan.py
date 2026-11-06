@@ -8,6 +8,7 @@ Isi dengan:
 import pytest
 from crud.lexer import LexError, TokenType as T, tokenize
 from crud.parser import parse_sql
+from crud.resolver import Resolver, Scope, ScopeEntry
 
 
 def parse_all(sql: str):
@@ -48,6 +49,7 @@ def test_and_lebih_kuat_dari_or():
     assert w.op == "OR"
     assert w.right.op == "AND"
 
+
 def test_regresi_error_recovery_jangan_membuang_sisa_file():
     """Bug: error recovery semula membuang seluruh sisa file setelah satu statement gagal."""
     sql = """
@@ -63,6 +65,17 @@ def test_left_outer_join_diterima():
     assert sc.errors == []
     assert sc.statements[0].joins[0].kind == "LEFT"
 
+def test_regresi_lookup_scope_terdekat_diutamakan():
+    outer = Scope()
+    inner = Scope(parent=outer)
+    outer.entries["u"] = ScopeEntry("u", "outer.users", 1)
+    inner.entries["u"] = ScopeEntry("u", "inner.users", 2)
+
+    resolver = Resolver()
+    resolver.scope = inner
+
+    assert resolver._lookup("u").table == "inner.users"
+    
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
 def test_tepi_komentar_blok_di_awal_file():
     # Risiko: token setelah komentar bisa ikut terlewat jika offset tidak diperbarui dengan benar.
@@ -146,3 +159,13 @@ def test_tepi_outer_tanpa_left_tetap_ditolak():
     sc = parse_sql("SELECT 1 FROM a OUTER JOIN b ON a.id = b.id;")
     assert len(sc.errors) == 1
     assert sc.statements == []
+    
+def test_tepi_lookup_fallback_ke_parent_jika_tidak_ada_di_inner():
+    outer = Scope()
+    inner = Scope(parent=outer)
+    outer.entries["u"] = ScopeEntry("u", "outer.users", 1)
+
+    resolver = Resolver()
+    resolver.scope = inner
+
+    assert resolver._lookup("u").table == "outer.users"
