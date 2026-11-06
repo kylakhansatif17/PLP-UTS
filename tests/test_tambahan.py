@@ -75,6 +75,11 @@ def test_regresi_lookup_scope_terdekat_diutamakan():
     resolver.scope = inner
 
     assert resolver._lookup("u").table == "inner.users"
+
+def test_scope_delete_tidak_bocor_ke_statement_berikutnya():
+    sc = parse_sql("DELETE FROM a x;\nSELECT x.id FROM b;")
+    diags = Resolver().resolve_script(sc)
+    assert any(d.level == "error" and "tidak terdefinisi" in d.message for d in diags)
     
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
 def test_tepi_komentar_blok_di_awal_file():
@@ -169,3 +174,11 @@ def test_tepi_lookup_fallback_ke_parent_jika_tidak_ada_di_inner():
     resolver.scope = inner
 
     assert resolver._lookup("u").table == "outer.users"
+
+def test_tepi_tidak_ada_scope_tersisa_setelah_resolve():
+    # Risiko: satu push tanpa pop saja membuat scope bocor ke statement berikutnya
+    # (spesifikasi 4.5). Diuji lewat tiga jenis statement sekaligus.
+    sc = parse_sql("DELETE FROM a x WHERE x.id = 1; UPDATE b SET v = 1; SELECT 1 FROM c;")
+    r = Resolver()
+    r.resolve_script(sc)
+    assert r.scope is None
