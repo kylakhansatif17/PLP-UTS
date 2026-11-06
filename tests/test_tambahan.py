@@ -78,7 +78,7 @@ def test_regresi_lookup_scope_terdekat_diutamakan():
     assert resolver._lookup("u").table == "inner.users"
 
 
-def test_regresi_subquery_di_update_dihitung_u_bukan_r():
+def test_regresi_subquery_di_update_dihitung_r_bukan_u():
     sql = """
     UPDATE produk
     SET stok = (
@@ -91,14 +91,25 @@ def test_regresi_subquery_di_update_dihitung_u_bukan_r():
     Resolver().resolve_script(script)
 
     usage = column_usage(script.statements[0])
-    assert ("gudang", "stok", "U") in usage
-    assert ("gudang", "produk_id", "U") in usage
-    assert ("produk_terjual", "id", "U") in usage
+    assert ("produk", "stok", "U") in usage
+    assert ("gudang", "stok", "R") in usage
+    assert ("gudang", "produk_id", "R") in usage
+    assert ("produk_terjual", "id", "R") in usage
 
 
 def test_scope_delete_tidak_bocor_ke_statement_berikutnya():
     sc = parse_sql("DELETE FROM a x;\nSELECT x.id FROM b;")
     diags = Resolver().resolve_script(sc)
+    assert any(d.level == "error" and "tidak terdefinisi" in d.message for d in diags)
+
+def test_regresi_delete_scope_pop_setelah_statement():
+    """Bug 8: scope DELETE harus diselesaikan sebelum statement berikutnya dibaca."""
+    resolver = Resolver()
+    script = parse_sql("DELETE FROM a x WHERE x.id = 1; SELECT x.id FROM b;")
+
+    diags = resolver.resolve_script(script)
+
+    assert resolver.scope is None
     assert any(d.level == "error" and "tidak terdefinisi" in d.message for d in diags)
     
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
