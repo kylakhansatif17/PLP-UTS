@@ -9,6 +9,11 @@ import pytest
 from crud.lexer import LexError, TokenType as T, tokenize
 from crud.parser import parse_sql
 
+
+def parse_all(sql: str):
+    return parse_sql(sql).statements
+
+
 def test_keyword_huruf_campuran_dikenali():
     toks = tokenize("SeLeCt * FrOm t")
     assert [(t.type, t.value) for t in toks[:3]] == [
@@ -42,6 +47,17 @@ def test_and_lebih_kuat_dari_or():
     w = sc.statements[0].where
     assert w.op == "OR"
     assert w.right.op == "AND"
+
+def test_regresi_error_recovery_jangan_membuang_sisa_file():
+    """Bug: error recovery semula membuang seluruh sisa file setelah satu statement gagal."""
+    sql = """
+    SELECT * FROM t WHERE ;
+    SELECT * FROM u
+    """
+    stmts = parse_all(sql)
+    assert len(stmts) >= 1
+    assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
+
 
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
 def test_tepi_komentar_blok_di_awal_file():
@@ -105,5 +121,20 @@ def test_tepi_between_and_tidak_tertukar_dengan_and_logika():
     assert w.op == "AND"
     assert type(w.left).__name__ == "Between"
     assert w.right.op == "="
+    
+def test_tepi_error_recovery_setelah_semicolon():
+    # Risiko: setelah error di satu statement, parser harus tetap menemukan statement berikutnya setelah semicolon.
+    sql = "SELECT * FROM t WHERE ; SELECT * FROM u;"
+    stmts = parse_all(sql)
+    assert len(stmts) >= 1
+    assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
+
+
+def test_tepi_error_recovery_setelah_error_di_tengah_baris():
+    # Risiko: error di tengah baris tidak boleh memaksa parser menelan seluruh file sampai EOF.
+    sql = "SELECT * FROM t WHERE a = 1 AND ;\nSELECT * FROM u;"
+    stmts = parse_all(sql)
+    assert len(stmts) >= 1
+    assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
 
 
