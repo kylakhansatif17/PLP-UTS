@@ -121,5 +121,20 @@ def test_tepi_between_and_tidak_tertukar_dengan_and_logika():
     assert w.op == "AND"
     assert type(w.left).__name__ == "Between"
     assert w.right.op == "="
+    
+def test_tepi_error_recovery_setelah_semicolon():
+    # Risiko: setelah error di satu statement, parser harus tetap menemukan statement berikutnya setelah semicolon.
+    sql = "SELECT * FROM t WHERE ; SELECT * FROM u;"
+    stmts = parse_all(sql)
+    assert len(stmts) >= 1
+    assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
+
+
+def test_tepi_error_recovery_setelah_error_di_tengah_baris():
+    # Risiko: error di tengah baris tidak boleh memaksa parser menelan seluruh file sampai EOF.
+    sql = "SELECT * FROM t WHERE a = 1 AND ;\nSELECT * FROM u;"
+    stmts = parse_all(sql)
+    assert len(stmts) >= 1
+    assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
 
 
