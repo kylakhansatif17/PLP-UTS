@@ -6,6 +6,7 @@ Isi dengan:
 2. Lima test kasus tepi, masing-masing dengan komentar singkat mengapa kasus itu berisiko.
 """
 import pytest
+from crud.analyzer import column_usage
 from crud.lexer import LexError, TokenType as T, tokenize
 from crud.parser import parse_sql
 from crud.resolver import Resolver, Scope, ScopeEntry
@@ -75,6 +76,25 @@ def test_regresi_lookup_scope_terdekat_diutamakan():
     resolver.scope = inner
 
     assert resolver._lookup("u").table == "inner.users"
+
+
+def test_regresi_subquery_di_update_dihitung_u_bukan_r():
+    sql = """
+    UPDATE produk
+    SET stok = (
+        SELECT MAX(gudang.stok) FROM gudang WHERE gudang.produk_id = produk.id
+    )
+    WHERE id IN (SELECT produk_terjual.id FROM produk_terjual);
+    """
+    script = parse_sql(sql)
+    assert script.errors == []
+    Resolver().resolve_script(script)
+
+    usage = column_usage(script.statements[0])
+    assert ("gudang", "stok", "U") in usage
+    assert ("gudang", "produk_id", "U") in usage
+    assert ("produk_terjual", "id", "U") in usage
+
 
 def test_scope_delete_tidak_bocor_ke_statement_berikutnya():
     sc = parse_sql("DELETE FROM a x;\nSELECT x.id FROM b;")
