@@ -78,7 +78,7 @@ def test_regresi_lookup_scope_terdekat_diutamakan():
     assert resolver._lookup("u").table == "inner.users"
 
 
-def test_regresi_subquery_di_update_dihitung_u_bukan_r():
+def test_regresi_subquery_di_update_dihitung_r_bukan_u():
     sql = """
     UPDATE produk
     SET stok = (
@@ -91,9 +91,10 @@ def test_regresi_subquery_di_update_dihitung_u_bukan_r():
     Resolver().resolve_script(script)
 
     usage = column_usage(script.statements[0])
-    assert ("gudang", "stok", "U") in usage
-    assert ("gudang", "produk_id", "U") in usage
-    assert ("produk_terjual", "id", "U") in usage
+    assert ("produk", "stok", "U") in usage
+    assert ("gudang", "stok", "R") in usage
+    assert ("gudang", "produk_id", "R") in usage
+    assert ("produk_terjual", "id", "R") in usage
 
 
 def test_scope_delete_tidak_bocor_ke_statement_berikutnya():
