@@ -1,5 +1,6 @@
 """Analyzer CRUD. Aturan lokal proyek ini: SPESIFIKASI.md bagian 5."""
 from collections import defaultdict
+from dataclasses import fields
 
 from . import ast_nodes as ast
 
@@ -79,23 +80,47 @@ def column_usage(stmt) -> set[tuple[str, str, str]]:
     dijalankan, karena memakai ColumnRef.resolved."""
     result: set[tuple[str, str, str]] = set()
 
-    def reads(node) -> None:
-        for n in ast.iter_nodes(node):
-            if isinstance(n, ast.ColumnRef) and n.resolved and not n.resolved.startswith("<"):
-                result.add((n.resolved, n.name, "R"))
+    def reads(node, op: str = "R", subquery_op: str | None = None) -> None:
+        if node is None:
+            return
+        if isinstance(node, list):
+            for item in node:
+                reads(item, op, subquery_op)
+            return
+        if isinstance(node, ast.ColumnRef):
+            if node.resolved and not node.resolved.startswith("<"):
+                result.add((node.resolved, node.name, op))
+            return
+        if isinstance(node, (ast.Subquery, ast.Exists)):
+            child_op = subquery_op if subquery_op is not None else op
+            reads(node.query, child_op, child_op)
+            return
+        if isinstance(node, ast.InExpr):
+            reads(node.expr, op, subquery_op)
+            for value in node.values or []:
+                reads(value, op, subquery_op)
+            if node.query is not None:
+                child_op = subquery_op if subquery_op is not None else op
+                reads(node.query, child_op, child_op)
+            return
+        if hasattr(node, "__dataclass_fields__"):
+            for field in fields(node.__class__):
+                if field.name == "resolved":
+                    continue
+                reads(getattr(node, field.name), op, subquery_op)
 
     if isinstance(stmt, ast.Update):
         for assignment in stmt.assignments:
             col = assignment.column
             if col.resolved and not col.resolved.startswith("<"):
                 result.add((col.resolved, col.name, "U"))
-            reads(assignment.value)
-        reads(stmt.where)
+            reads(assignment.value, "R", "U")
+        reads(stmt.where, "R", "U")
     elif isinstance(stmt, ast.Insert):
         for name in stmt.columns:
             result.add((stmt.table.name, name, "C"))
-        reads(stmt.values)
-        reads(stmt.query)
+        reads(stmt.values, "R")
+        reads(stmt.query, "R")
     else:
-        reads(stmt)
+        reads(stmt, "R")
     return result
