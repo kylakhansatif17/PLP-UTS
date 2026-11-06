@@ -43,6 +43,15 @@ def test_and_lebih_kuat_dari_or():
     assert w.op == "OR"
     assert w.right.op == "AND"
 
+def test_regresi_error_recovery_jangan_membuang_sisa_file():
+    sql = """
+    SELECT * FROM t WHERE ;
+    SELECT * FROM u
+    """
+    stmts = parse_all(sql)
+    assert len(stmts) >= 2
+    assert any("u" in str(s) for s in stmts)
+
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
 def test_tepi_komentar_blok_di_awal_file():
     # Risiko: token setelah komentar bisa ikut terlewat jika offset tidak diperbarui dengan benar.
