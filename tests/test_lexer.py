@@ -1,7 +1,5 @@
 import pytest
-
 from crud.lexer import LexError, TokenType as T, tokenize
-
 
 def types(src):
     return [t.type for t in tokenize(src)]

@@ -6,8 +6,8 @@ Isi dengan:
 2. Lima test kasus tepi, masing-masing dengan komentar singkat mengapa kasus itu berisiko.
 """
 import pytest
-
 from crud.lexer import LexError, TokenType as T, tokenize
+from crud.parser import parse_sql
 
 def test_keyword_huruf_campuran_dikenali():
     toks = tokenize("SeLeCt * FrOm t")
@@ -19,6 +19,29 @@ def test_regresi_komentar_blok_multi_baris_dilewati():
     """Bug: komentar blok /* ... */ sebelumnya memicu LexError."""
     toks = tokenize("/* komentar\n   dua baris */ SELECT")
     assert toks[0].value == "SELECT" and toks[0].line == 2
+
+def test_operator_tidak_sama_diamond_satu_token():
+    toks = [t for t in tokenize("a <> 1") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [(T.IDENT, "a"), (T.OP, "<>"), (T.NUMBER, "1")]
+
+def test_string_dengan_kutip_ganda_escape():
+    toks = [t for t in tokenize("SELECT 1 FROM t WHERE a = 'it''s'") if t.type != T.EOF]
+    assert [(t.type, t.value) for t in toks] == [
+        (T.KEYWORD, "SELECT"),
+        (T.NUMBER, "1"),
+        (T.KEYWORD, "FROM"),
+        (T.IDENT, "t"),
+        (T.KEYWORD, "WHERE"),
+        (T.IDENT, "a"),
+        (T.OP, "="),
+        (T.STRING, "it's"),
+    ]
+
+def test_and_lebih_kuat_dari_or():
+    sc = parse_sql("SELECT id FROM t WHERE a = 1 OR b = 2 AND c = 3;")
+    w = sc.statements[0].where
+    assert w.op == "OR"
+    assert w.right.op == "AND"
 
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
 def test_tepi_komentar_blok_di_awal_file():
@@ -43,24 +66,6 @@ def test_tepi_komentar_baris_dan_blok_bersama():
     assert toks[1].value == "id"
     assert toks[2].value == "FROM"
 
-def test_operator_tidak_sama_diamond_satu_token():
-    toks = [t for t in tokenize("a <> 1") if t.type != T.EOF]
-    assert [(t.type, t.value) for t in toks] == [(T.IDENT, "a"), (T.OP, "<>"), (T.NUMBER, "1")]
-
-def test_string_dengan_kutip_ganda_escape():
-    toks = [t for t in tokenize("SELECT 1 FROM t WHERE a = 'it''s'") if t.type != T.EOF]
-    assert [(t.type, t.value) for t in toks] == [
-        (T.KEYWORD, "SELECT"),
-        (T.NUMBER, "1"),
-        (T.KEYWORD, "FROM"),
-        (T.IDENT, "t"),
-        (T.KEYWORD, "WHERE"),
-        (T.IDENT, "a"),
-        (T.OP, "="),
-        (T.STRING, "it's"),
-    ]
-
-
 def test_tepi_string_apostrof_di_tengah():
     # Risiko: apostrof yang escaped di tengah string harus tetap menjadi satu literal, bukan penutup string.
     toks = [t for t in tokenize("SELECT 'O''Brien' AS nama") if t.type != T.EOF]
@@ -70,7 +75,6 @@ def test_tepi_string_apostrof_di_tengah():
         (T.KEYWORD, "AS"),
         (T.IDENT, "nama"),
     ]
-
 
 def test_tepi_string_beberapa_apostrof():
     # Risiko: beberapa escape dalam satu literal harus dipertahankan semua, bukan dibreak di karakter pertama.
@@ -82,7 +86,6 @@ def test_tepi_string_beberapa_apostrof():
         (T.IDENT, "kode"),
     ]
 
-
 def test_tepi_string_setelah_komentar():
     # Risiko: komentar sebelumnya tidak boleh memengaruhi parsing literal string berikutnya.
     toks = [t for t in tokenize("/* x */ SELECT 'it''s' FROM t") if t.type != T.EOF]
@@ -92,4 +95,15 @@ def test_tepi_string_setelah_komentar():
         (T.KEYWORD, "FROM"),
         (T.IDENT, "t"),
     ]
+
+def test_tepi_between_and_tidak_tertukar_dengan_and_logika():
+    # Risiko: BETWEEN punya AND sendiri. Setelah AND/OR dipisah jadi dua tingkat,
+    # AND milik BETWEEN tidak boleh dibaca sebagai AND logika, dan sebaliknya.
+    sc = parse_sql("SELECT 1 FROM t WHERE x BETWEEN 1 AND 2 AND y = 3;")
+    assert sc.errors == []
+    w = sc.statements[0].where
+    assert w.op == "AND"
+    assert type(w.left).__name__ == "Between"
+    assert w.right.op == "="
+
 

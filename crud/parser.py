@@ -242,19 +242,27 @@ class Parser:
         tok = self._peek()
         table = ast.TableRef(self._table_name(), self._alias(), line=tok.line)
         where = self._expr() if self._match_kw("WHERE") else None
-        return ast.Delete(table, where, line=start.line)
+        return ast.Delete(table, where, line=start.line) 
 
-    # ---- ekspresi (dari presedensi terendah ke tertinggi) ---------------
+      # ---- ekspresi (dari presedensi terendah ke tertinggi) ---------------
     def _expr(self):
         return self._logical()
 
     def _logical(self):
-        # OR dan AND: operator logika biner, asosiatif kiri.
+        # OR: tingkat terendah (spesifikasi 3.1), asosiatif kiri.
+        left = self._and()
+        while self._check_kw("OR"):
+            op = self._advance().value
+            left = ast.BinaryOp(left, op, self._and())
+        return left
+
+    def _and(self):
+        # AND: lebih kuat dari OR, jadi dipanggil lebih dalam.
         left = self._not()
-        while self._check_kw("AND", "OR"):
+        while self._check_kw("AND"):
             op = self._advance().value
             left = ast.BinaryOp(left, op, self._not())
-        return left
+        return left  
 
     def _not(self):
         if self._match_kw("NOT"):
