@@ -161,6 +161,10 @@ class Lexer:
                 raise LexError("string tidak ditutup", line, col)
             ch = self._advance()
             if ch == "'":
+                if self._peek() == "'":
+                    chars.append("'")
+                    self._advance()
+                    continue
                 break
             chars.append(ch)
         self._add(TokenType.STRING, "".join(chars), line, col)
