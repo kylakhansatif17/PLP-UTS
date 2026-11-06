@@ -58,6 +58,10 @@ def test_regresi_error_recovery_jangan_membuang_sisa_file():
     assert len(stmts) >= 1
     assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
 
+def test_left_outer_join_diterima():
+    sc = parse_sql("SELECT 1 FROM a LEFT OUTER JOIN b ON a.id = b.id;")
+    assert sc.errors == []
+    assert sc.statements[0].joins[0].kind == "LEFT"
 
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
 def test_tepi_komentar_blok_di_awal_file():
@@ -129,7 +133,6 @@ def test_tepi_error_recovery_setelah_semicolon():
     assert len(stmts) >= 1
     assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
 
-
 def test_tepi_error_recovery_setelah_error_di_tengah_baris():
     # Risiko: error di tengah baris tidak boleh memaksa parser menelan seluruh file sampai EOF.
     sql = "SELECT * FROM t WHERE a = 1 AND ;\nSELECT * FROM u;"
@@ -137,4 +140,9 @@ def test_tepi_error_recovery_setelah_error_di_tengah_baris():
     assert len(stmts) >= 1
     assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
 
-
+def test_tepi_outer_tanpa_left_tetap_ditolak():
+    # Risiko: setelah OUTER dibuat opsional, parser bisa ikut menerima OUTER
+    # di sembarang tempat. Menurut grammar, OUTER hanya sah setelah LEFT.
+    sc = parse_sql("SELECT 1 FROM a OUTER JOIN b ON a.id = b.id;")
+    assert len(sc.errors) == 1
+    assert sc.statements == []
