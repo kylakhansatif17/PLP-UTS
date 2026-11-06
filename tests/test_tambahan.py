@@ -100,6 +100,16 @@ def test_scope_delete_tidak_bocor_ke_statement_berikutnya():
     sc = parse_sql("DELETE FROM a x;\nSELECT x.id FROM b;")
     diags = Resolver().resolve_script(sc)
     assert any(d.level == "error" and "tidak terdefinisi" in d.message for d in diags)
+
+def test_regresi_delete_scope_pop_setelah_statement():
+    """Bug 8: scope DELETE harus diselesaikan sebelum statement berikutnya dibaca."""
+    resolver = Resolver()
+    script = parse_sql("DELETE FROM a x WHERE x.id = 1; SELECT x.id FROM b;")
+
+    diags = resolver.resolve_script(script)
+
+    assert resolver.scope is None
+    assert any(d.level == "error" and "tidak terdefinisi" in d.message for d in diags)
     
 # Lima edge-case yang sering gagal bila lexer tidak menangani komentar blok dengan benar.
 def test_tepi_komentar_blok_di_awal_file():
