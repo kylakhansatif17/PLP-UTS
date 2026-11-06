@@ -48,7 +48,11 @@ def _collect_select(sel: ast.Select, usage, op: str) -> None:
 
 
 def _collect(expr, usage, op: str) -> None:
-    """Menandai tabel di setiap subquery di dalam ekspresi dengan `op`."""
+    """Menandai tabel di setiap subquery di dalam ekspresi dengan `R`.
+
+    Aturan lokal proyek: tabel target UPDATE hanya mendapat `U`; subquery yang
+    dibaca di dalam nilai/WHERE tetap `R`.
+    """
     if expr is None:
         return
     if isinstance(expr, ast.BinaryOp):
@@ -61,7 +65,7 @@ def _collect(expr, usage, op: str) -> None:
         for value in expr.values or []:
             _collect(value, usage, op)
         if expr.query is not None:
-            _collect_select(expr.query, usage, op)
+            _collect_select(expr.query, usage, "R")
     elif isinstance(expr, ast.Between):
         _collect(expr.expr, usage, op)
         _collect(expr.low, usage, op)
@@ -69,7 +73,7 @@ def _collect(expr, usage, op: str) -> None:
     elif isinstance(expr, ast.IsNull):
         _collect(expr.expr, usage, op)
     elif isinstance(expr, (ast.Exists, ast.Subquery)):
-        _collect_select(expr.query, usage, op)
+        _collect_select(expr.query, usage, "R")
     elif isinstance(expr, ast.FunctionCall):
         for arg in expr.args:
             _collect(arg, usage, op)
@@ -80,42 +84,40 @@ def column_usage(stmt) -> set[tuple[str, str, str]]:
     dijalankan, karena memakai ColumnRef.resolved."""
     result: set[tuple[str, str, str]] = set()
 
-    def reads(node, op: str = "R", subquery_op: str | None = None) -> None:
+    def reads(node, op: str = "R") -> None:
         if node is None:
             return
         if isinstance(node, list):
             for item in node:
-                reads(item, op, subquery_op)
+                reads(item, op)
             return
         if isinstance(node, ast.ColumnRef):
             if node.resolved and not node.resolved.startswith("<"):
                 result.add((node.resolved, node.name, op))
             return
         if isinstance(node, (ast.Subquery, ast.Exists)):
-            child_op = subquery_op if subquery_op is not None else op
-            reads(node.query, child_op, child_op)
+            reads(node.query, "R")
             return
         if isinstance(node, ast.InExpr):
-            reads(node.expr, op, subquery_op)
+            reads(node.expr, op)
             for value in node.values or []:
-                reads(value, op, subquery_op)
+                reads(value, op)
             if node.query is not None:
-                child_op = subquery_op if subquery_op is not None else op
-                reads(node.query, child_op, child_op)
+                reads(node.query, "R")
             return
         if hasattr(node, "__dataclass_fields__"):
             for field in fields(node.__class__):
                 if field.name == "resolved":
                     continue
-                reads(getattr(node, field.name), op, subquery_op)
+                reads(getattr(node, field.name), op)
 
     if isinstance(stmt, ast.Update):
         for assignment in stmt.assignments:
             col = assignment.column
             if col.resolved and not col.resolved.startswith("<"):
                 result.add((col.resolved, col.name, "U"))
-            reads(assignment.value, "R", "U")
-        reads(stmt.where, "R", "U")
+            reads(assignment.value, "R")
+        reads(stmt.where, "U")
     elif isinstance(stmt, ast.Insert):
         for name in stmt.columns:
             result.add((stmt.table.name, name, "C"))
