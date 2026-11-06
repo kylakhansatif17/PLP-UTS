@@ -175,8 +175,11 @@ class Resolver:
             else:
                 col.resolved = _target_of(entry)
             return
-        # TODO(T2): kolom tanpa qualifier (SPESIFIKASI.md bagian 4.3).
-        #   - tepat satu tabel di scope terdalam -> isi col.resolved
-        #   - lebih dari satu tabel              -> warning "ambigu tanpa skema"
-        #   - tidak ada tabel                    -> warning
-        pass
+                # Tanpa qualifier: hanya scope terdalam yang dilihat (SPESIFIKASI.md 4.3).
+        tables = list(self.scope.entries.values()) if self.scope is not None else []
+        if len(tables) == 1:
+            col.resolved = _target_of(tables[0])
+        elif len(tables) > 1:
+            self._warning(f"kolom '{col.name}' ambigu tanpa skema", col.line)
+        else:
+            self._warning(f"kolom '{col.name}' tidak punya tabel untuk dirujuk", col.line)
