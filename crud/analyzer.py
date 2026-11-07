@@ -117,7 +117,7 @@ def column_usage(stmt) -> set[tuple[str, str, str]]:
             if col.resolved and not col.resolved.startswith("<"):
                 result.add((col.resolved, col.name, "U"))
             reads(assignment.value, "R")
-        reads(stmt.where, "U")
+        reads(stmt.where, "R")
     elif isinstance(stmt, ast.Insert):
         for name in stmt.columns:
             result.add((stmt.table.name, name, "C"))
