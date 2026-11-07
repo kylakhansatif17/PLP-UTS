@@ -111,7 +111,7 @@ Alternatif yang dipertimbangkan dan tidak dipilih:
 
 **Test regresi.** `test_and_lebih_kuat_dari_or` di `tests/test_tambahan.py`. Gagal sebelum perbaikan (akar `AND`, bukan `OR`), lulus sesudahnya.
 
-**Peran AI.** Saya sudah menemukan bahwa akar masalahnya ada pada fungsi `_logical` di parser, karena `AND` dan `OR` diproses dalam satu loop yang sama. Namun saya masih bingung bagaimana cara memperbaikinya. Di tahap ini AI membantu mengarahkan saya menyusun solusinya, yaitu memisahkan `OR` dan `AND` menjadi dua fungsi (`_logical` untuk `OR` dan `_and` untuk `AND`). Setelah itu saya menjalankan `test_and_lebih_kuat_dari_or` dan hasilnya gagal sebelum perbaikan dan lulus sesudah perbaikan.
+**Peran AI.** Saya sudah menemukan bahwa akar masalahnya ada pada fungsi `_logical` di parser, karena `AND` dan `OR` diproses dalam satu loop yang sama. Namun saya masih bingung bagaimana cara memperbaikinya. Di tahap ini AI membantu mengarahkan saya menyusun solusinya, yaitu memisahkan `OR` dan `AND` menjadi dua fungsi (`_logical` untuk `OR` dan `_and` untuk `AND`). Lalu saya menyusun kode perbaikan itu secara mandiri dan saya mencoba menjalankan `test_and_lebih_kuat_dari_or`, hasilnya adalah gagal sebelum dilakukan perbaikan dan lulus sesudah perbaikan.
 
 ---
 
