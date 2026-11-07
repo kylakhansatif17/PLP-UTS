@@ -4,8 +4,23 @@ Catat setiap penggunaan AI atau coding agent yang memengaruhi kode atau laporan.
 
 | No | Siapa | Prompt / tugas (ringkas) | Hasil: diterima, diubah, atau ditolak | Alasan | Cara verifikasi |
 | --- | --- | --- | --- | --- | --- |
-| 1 | | | | | |
+| 1 | Aulia | Mencocokkan draf laporan bug yang telah disusun oleh Aulia dan Kyla dengan output pytest dan python -m crud.cli | Diterima | AI memisahkan klaim yang sudah terbukti dari yang baru dugaan, lalu akar masalah dicocokkan dengan kode | Membandingkan dengan output pytest dan CLI milik sendiri |
+| 2 | Aulia | Bug 1: memastikan keyword huruf kecil memang bug dan memvalidasi solusi yang saya susun | Diterima | Solusi saya (mengubah kata ke huruf besar sebelum dicek ke KEYWORDS) sesuai spesifikasi 2.2. Mengubah isi KEYWORDS ke huruf kecil tidak dipilih karena melanggar spesifikasi | Test regresi test_keyword_huruf_campuran_dikenali gagal sebelum perbaikan dan lulus sesudahnya, lalu python -m pytest |
+| 3 | Aulia | Bug 2: bingung bagian mana yang harus diubah agar <> menjadi satu token, lalu menelusuri akar masalahnya | Diterima | AI membantu menunjukkan akar masalah di cabang "<" lexer yang hanya mengecek "=". Kode perbaikannya saya tulis sendiri. Memperbaiki di parser tidak dipilih karena salah tahap | test_operator_tidak_sama_diamond_satu_token gagal lalu lulus, error ">" di laporan_penjualan.sql baris 6 hilang, python -m pytest tidak menunjukkan bug baru |
+| 4 | Aulia | Bug 4: akar masalah di _logical sudah saya temukan, tetapi masih bingung cara memperbaikinya | Diterima | AI mengarahkan saya memisahkan OR dan AND menjadi dua fungsi (_logical dan _and) sesuai grammar bagian 3. Menukar urutan cek di satu loop tidak dipilih karena tidak bisa menyatakan dua tingkat presedensi | test_and_lebih_kuat_dari_or gagal sebelum perbaikan dan lulus sesudahnya |
+| 5 | Aulia | Bug 6: menelusuri pesan error "diharapkan JOIN, ditemukan OUTER" sampai ke _join | Diterima | AI membantu mencocokkan kode dengan grammar dan menjelaskan bagian opsional [OUTER] diterapkan dengan satu _match_kw("OUTER"). Menerima OUTER di mana saja tidak dipilih karena melanggar grammar | test_left_outer_join_diterima dan test_tepi_outer_tanpa_left_tetap_ditolak lulus, python -m pytest tidak menunjukkan bug baru |
+| 6 | Aulia | Bug 8: mencari kenapa alias DELETE masih terbaca oleh SELECT berikutnya | Diterima | Dari pembacaan bersama _select, _update, dan _delete terlihat hanya _delete yang tidak memanggil _pop. Mereset scope di tiap statement tidak dipilih karena hanya menutupi masalah | test_regresi_delete_scope_pop_setelah_statement gagal sebelum perbaikan dan lulus sesudahnya |
+| 7 | Aulia | Menanyakan bagaimana fitur INSERT ... SELECT (parser) dan kolom tanpa qualifier (resolver) ini berjalan | Diterima | AI membantu saya untuk menyusun rancangan kodenya, lalu saya coba susun dan pelajari sampai paham | test_insert_select dan test_kolom_tanpa_qualifier_satu_tabel berhasil dijalankan dan python -m pytest tidak menunjukkan kegagalan baru |
+| 11 | Aulia | Saran awal AI menambah test di tests/test_lexer.py | Ditolak | test_lexer.py yang berasal dari file dosen tidak boleh diubah, dan penambahan test harus berada di tests/test_tambahan.py | Membaca docstring test_tambahan.py dan template LAPORAN_BUG |
+| 12 | Aulia | Klaim AI bahwa Bug 4, 6, dan 8 belum resolved | Ditolak | Klaim itu hanya dugaan tanpa menjalankan kode | Tiga test regresi dan python -m pytest saya jalankan sendiri, semuanya lulus |
 
+
+**Refleksi (3-5 kalimat).** 
+```
+Aulia Rahmi Taufik:
+AI paling membantu ketika saya mencari letak penyebab bug yang masih saya bingungkan. Pada bug <>, errornya muncul di parser, padahal masalahnya ada di lexer. Bug _pop yang hilang di _delete juga baru terlihat setelah saya membandingkan ketiga fungsi yang mengatur scope. Namun AI juga dapat melakukan kesalahan. Ia menyarankan menambah test di file milik dosen diluar test_tambahan.py padahal hal itu tidak perbolehkan dan penulisan test harus di test_tambahan.py dan AI juga menulis sebuah claim “sudah dicek” atas nama saya, padahal disini saya belum mengecek apa pun jadi tentunya kedua saran dari AI tersebut saya tolak. AI juga menyebut beberapa bug belum selesai tanpa disertai bukti, padahal disini saya hanya ingin memvalidasi bug yang sudah resolved agar lebih yakin, sehingga saya menjalankan lagi secara mandiri test regresi dan pytest secara penuh, lalu menolak klaim tersebut karena hasilnya lulus.
+
+```
 **Refleksi (3-5 kalimat).** Di bagian mana AI paling membantu? Di mana AI keliru atau
 menyesatkan, dan bagaimana kalian mengetahuinya?
 # Log Penggunaan AI
