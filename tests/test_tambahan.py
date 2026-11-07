@@ -96,6 +96,17 @@ def test_regresi_subquery_di_update_dihitung_r_bukan_u():
     assert ("gudang", "produk_id", "R") in usage
     assert ("produk_terjual", "id", "R") in usage
 
+
+def test_update_where_kolom_terbaca_bukan_termutakhirkan():
+    sql = "UPDATE p SET s = 1 WHERE p.id = 1;"
+    script = parse_sql(sql)
+    assert script.errors == []
+    Resolver().resolve_script(script)
+    usage = column_usage(script.statements[0])
+    assert ("p", "id", "R") in usage
+    assert ("p", "s", "U") in usage
+
+
 def test_regresi_delete_scope_pop_setelah_statement():
     """Bug 8: scope DELETE harus diselesaikan sebelum statement berikutnya dibaca."""
     resolver = Resolver()
@@ -182,6 +193,15 @@ def test_tepi_error_recovery_setelah_error_di_tengah_baris():
     stmts = parse_all(sql)
     assert len(stmts) >= 1
     assert any(getattr(s, "sources", None) and s.sources[0].name == "u" for s in stmts)
+
+
+def test_tepi_error_recovery_satu_error_per_statement_dengan_subquery():
+    # Risiko: SELECT di dalam subquery yang rusak tidak boleh dianggap awal statement baru.
+    sql = "SELECT * FROM WHERE id IN (SELECT id FROM u);\nSELECT * FROM v;"
+    sc = parse_sql(sql)
+    assert len(sc.errors) == 1
+    assert any(getattr(s, "sources", None) and s.sources[0].name == "v" for s in sc.statements)
+
 
 def test_tepi_outer_tanpa_left_tetap_ditolak():
     # Risiko: setelah OUTER dibuat opsional, parser bisa ikut menerima OUTER
