@@ -96,12 +96,6 @@ def test_regresi_subquery_di_update_dihitung_r_bukan_u():
     assert ("gudang", "produk_id", "R") in usage
     assert ("produk_terjual", "id", "R") in usage
 
-
-def test_scope_delete_tidak_bocor_ke_statement_berikutnya():
-    sc = parse_sql("DELETE FROM a x;\nSELECT x.id FROM b;")
-    diags = Resolver().resolve_script(sc)
-    assert any(d.level == "error" and "tidak terdefinisi" in d.message for d in diags)
-
 def test_regresi_delete_scope_pop_setelah_statement():
     """Bug 8: scope DELETE harus diselesaikan sebelum statement berikutnya dibaca."""
     resolver = Resolver()
